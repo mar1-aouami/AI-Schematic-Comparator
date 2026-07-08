@@ -1,1 +1,1 @@
-# schema-comparator
+# AI-Schematic-Comparator
