@@ -1,0 +1,104 @@
+name: schema-comparator
+
+services:
+  # 1. Base de données (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: schema_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: schemacomparator
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d schemacomparator"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Message Broker (Redis)
+  redis:
+    image: redis:7-alpine
+    container_name: schema_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Backend (Django API)
+  backend:
+    build: 
+      context: ./backend
+    container_name: schema_backend
+    restart: unless-stopped
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_DB=schemacomparator
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=adminpassword
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # 4. Worker IA (Celery)
+  worker:
+    build:
+      context: ./backend
+    container_name: schema_worker
+    restart: unless-stopped
+    command: celery -A backend worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - POSTGRES_DB=schemacomparator
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=adminpassword
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  # 5. Frontend (React / Vite)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: schema_frontend
+    restart: unless-stopped
+    # On surcharge la commande pour forcer l'écoute sur toutes les interfaces (0.0.0.0) et le port 3000
+    command: npm run dev -- --host 0.0.0.0 --port 3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  postgres_data:
