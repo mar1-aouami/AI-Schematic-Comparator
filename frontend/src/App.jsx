@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { TransformWrapper, TransformComponent, useControls, useTransformContext } from "react-zoom-pan-pinch";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 const MOCK_ANOMALIES = [
   { id: 'AN-01', tag: 'PT-102', type: 'ajout', criticality: 'majeure', desc: 'Nouveau capteur de pression ajouté sur la ligne principale.', confidence: 98, location: 'C-4' },
   { id: 'AN-02', tag: 'V-205', type: 'suppression', criticality: 'critique', desc: 'Vanne d\'isolement retirée en amont de la pompe de charge.', confidence: 95, location: 'A-2' },
@@ -125,7 +127,7 @@ const BlueprintViewer = React.memo(({ referenceImageUrl, resultImageUrl }) => {
           <Controls />
           <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center cursor-grab active:cursor-grabbing">
             <img 
-              src={`http://localhost:8000${currentImageUrl}`} 
+              src={`${API_BASE_URL}${currentImageUrl}`} 
               alt="Plan" 
               className="max-w-full max-h-full object-contain shadow-2xl shadow-blueprint-primary/5 pointer-events-none" 
             />
@@ -182,7 +184,7 @@ export default function App() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/comparisons/');
+      const res = await fetch(`${API_BASE_URL}/api/comparisons/`);
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -195,7 +197,7 @@ export default function App() {
   const handleDeleteAllHistory = async () => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer tout l'historique ?")) return;
     try {
-      const res = await fetch('http://localhost:8000/api/comparisons/', { method: 'DELETE' });
+      const res = await fetch(`${API_BASE_URL}/api/comparisons/`, { method: 'DELETE' });
       if (res.ok) {
         setHistory([]);
         resetToHome();
@@ -209,7 +211,7 @@ export default function App() {
     e.stopPropagation();
     if (!window.confirm("Supprimer cette analyse ?")) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/comparisons/${id}/`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE_URL}/api/comparisons/${id}/`, { method: 'DELETE' });
       if (res.ok) {
         setHistory(prev => prev.filter(item => item.id !== id));
         if (comparisonId === id) resetToHome();
@@ -242,7 +244,7 @@ export default function App() {
 
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/comparisons/${comparisonId}/`);
+        const response = await fetch(`${API_BASE_URL}/api/comparisons/${comparisonId}/`);
         if (response.ok) {
           const data = await response.json();
           
@@ -280,7 +282,7 @@ export default function App() {
     formData.append('file_b', fileB);
 
     try {
-      const response = await fetch('http://localhost:8000/api/upload/', {
+      const response = await fetch(`${API_BASE_URL}/api/upload/`, {
         method: 'POST',
         body: formData,
       });
@@ -304,7 +306,7 @@ export default function App() {
     if (!comparisonId) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/api/comparisons/${comparisonId}/export/`);
+      const response = await fetch(`${API_BASE_URL}/api/comparisons/${comparisonId}/export/`);
       
       if (!response.ok) {
         throw new Error('Erreur lors de la génération du PDF');
