@@ -20,3 +20,7 @@ RUN pip install --upgrade pip && pip install --default-timeout=1000 --no-cache-d
 
 # Copie du reste du code du backend
 COPY . .
+
+RUN chmod +x start.sh
+
+CMD ["./start.sh"]

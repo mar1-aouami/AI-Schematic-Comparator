@@ -8,3 +8,7 @@ opencv-python-headless
 ultralytics
 pymupdf
 reportlab
+gunicorn
+dj-database-url
+whitenoise
+
