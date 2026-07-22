@@ -381,11 +381,11 @@ export default function App() {
   if (isAppLoading) {
     return (
       <div className="fixed inset-0 bg-blueprint-bg flex flex-col items-center justify-center z-50 overflow-hidden">
-        <div className="relative w-40 h-40 rounded-full overflow-hidden shadow-[0_0_60px_rgba(6,182,212,0.8)] animate-pulse mb-8 flex items-center justify-center bg-[#0b1120] border-2 border-blueprint-primary/50">
-           <div className="absolute inset-0 bg-blueprint-primary/20 animate-ping rounded-full"></div>
+        <div className="relative w-40 h-40 rounded-full overflow-hidden shadow-lg animate-pulse mb-8 flex items-center justify-center bg-blueprint-surface border-2 border-blueprint-primary/20">
+           <div className="absolute inset-0 bg-blueprint-primary/10 animate-ping rounded-full"></div>
            <img src="/schematic_logo.png" alt="Logo" className="absolute top-1/2 left-1/2 w-[160%] max-w-none -translate-x-1/2 translate-y-[-42%] z-10" />
         </div>
-        <h1 className="text-4xl font-display font-bold text-blueprint-text tracking-widest uppercase mb-3 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]">
+        <h1 className="text-4xl font-display font-bold text-blueprint-text tracking-widest uppercase mb-3 drop-shadow-md">
           AI Schematic
         </h1>
         <p className="text-blueprint-primary font-mono text-sm tracking-[0.2em] uppercase animate-pulse">
@@ -401,7 +401,7 @@ export default function App() {
         <aside className={`w-64 border-r border-blueprint-border/60 bg-blueprint-surface flex-col shrink-0 ${isSidebarOpen ? 'flex' : 'hidden'}`}>
           <div className="h-14 flex items-center px-4 border-b border-blueprint-border/60 shrink-0">
             <Menu onClick={() => setIsSidebarOpen(false)} className="w-5 h-5 text-blueprint-text-sec mr-3 cursor-pointer hover:text-blueprint-primary transition-colors" />
-            <div className="relative w-9 h-9 mr-3 rounded-full overflow-hidden shrink-0 bg-[#0b1120] border border-blueprint-border/50 cursor-pointer shadow-[0_0_10px_rgba(6,182,212,0.2)]" onClick={resetToHome}>
+            <div className="relative w-9 h-9 mr-3 rounded-full overflow-hidden shrink-0 bg-blueprint-surface border border-blueprint-border/50 cursor-pointer shadow-sm" onClick={resetToHome}>
                <img src="/schematic_logo.png" alt="Logo" className="absolute top-1/2 left-1/2 w-[160%] max-w-none -translate-x-1/2 translate-y-[-42%]" />
             </div>
             <h1 

@@ -3,14 +3,22 @@
 @import "tailwindcss";
 
 @theme {
-  --color-blueprint-bg: #0B1420;
-  --color-blueprint-surface: #121E2E;
-  --color-blueprint-elevated: #182840;
-  --color-blueprint-border: #24374F;
-  --color-blueprint-text: #E8EEF3;
-  --color-blueprint-text-sec: #8A9BAE;
-  --color-blueprint-cyan: #06B6D4;
-  --color-blueprint-cyan-hover: #22D3EE;
+  /* Premium Enterprise Dark Mode (Zinc/Slate base) */
+  --color-blueprint-bg: #09090B; /* zinc-950 */
+  --color-blueprint-surface: #18181B; /* zinc-900 */
+  --color-blueprint-elevated: #27272A; /* zinc-800 */
+  --color-blueprint-border: #3F3F46; /* zinc-700 */
+  
+  --color-blueprint-text: #FAFAFA; /* zinc-50 */
+  --color-blueprint-text-sec: #A1A1AA; /* zinc-400 */
+  
+  /* Primary Accent: Sleek Professional Blue */
+  --color-blueprint-primary: #3B82F6; /* blue-500 */
+  --color-blueprint-primary-hover: #60A5FA; /* blue-400 */
+  
+  /* Retain cyan for any legacy classes, but map to primary */
+  --color-blueprint-cyan: #3B82F6;
+  --color-blueprint-cyan-hover: #60A5FA;
 
   --font-sans: 'IBM Plex Sans', sans-serif;
   --font-condensed: 'IBM Plex Sans Condensed', sans-serif;
