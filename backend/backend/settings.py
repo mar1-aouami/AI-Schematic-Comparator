@@ -127,19 +127,24 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # Celery Configuration Options
-redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+base_redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 
 # Upstash requires TLS but provides redis:// URLs by default. Force rediss://
-if 'upstash.io' in redis_url and redis_url.startswith('redis://'):
-    redis_url = redis_url.replace('redis://', 'rediss://', 1)
+if 'upstash.io' in base_redis_url and base_redis_url.startswith('redis://'):
+    base_redis_url = base_redis_url.replace('redis://', 'rediss://', 1)
 
-CELERY_BROKER_URL = redis_url
-CELERY_RESULT_BACKEND = redis_url
+# Remove any existing query params to cleanly append our own
+if '?' in base_redis_url:
+    base_redis_url = base_redis_url.split('?')[0]
 
-if redis_url.startswith('rediss://'):
-    import ssl
-    CELERY_BROKER_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
-    CELERY_REDIS_BACKEND_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
+if base_redis_url.startswith('rediss://'):
+    # Kombu (Broker) uses redis-py which expects 'none'
+    CELERY_BROKER_URL = f"{base_redis_url}?ssl_cert_reqs=none"
+    # Celery Result Backend has a hardcoded check for 'CERT_NONE'
+    CELERY_RESULT_BACKEND = f"{base_redis_url}?ssl_cert_reqs=CERT_NONE"
+else:
+    CELERY_BROKER_URL = base_redis_url
+    CELERY_RESULT_BACKEND = base_redis_url
 
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
