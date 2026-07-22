@@ -128,12 +128,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Celery Configuration Options
 redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
-if redis_url.startswith('rediss://') and 'ssl_cert_reqs' not in redis_url:
-    join_char = '&' if '?' in redis_url else '?'
-    redis_url += f"{join_char}ssl_cert_reqs=CERT_NONE"
 
 CELERY_BROKER_URL = redis_url
 CELERY_RESULT_BACKEND = redis_url
+
+if redis_url.startswith('rediss://'):
+    import ssl
+    CELERY_BROKER_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
+    CELERY_REDIS_BACKEND_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
+
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
