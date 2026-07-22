@@ -129,6 +129,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Celery Configuration Options
 redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 
+# Upstash requires TLS but provides redis:// URLs by default. Force rediss://
+if 'upstash.io' in redis_url and redis_url.startswith('redis://'):
+    redis_url = redis_url.replace('redis://', 'rediss://', 1)
+
 CELERY_BROKER_URL = redis_url
 CELERY_RESULT_BACKEND = redis_url
 
