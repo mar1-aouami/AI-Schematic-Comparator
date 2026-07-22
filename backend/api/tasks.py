@@ -124,21 +124,18 @@ def process_comparison_task(comparison_id):
         # Filtre de seuillage strict
         _, thresh = cv2.threshold(diff, 80, 255, cv2.THRESH_BINARY)
         
-        # Élimination du bruit résiduel (petits pixels isolés, poussière, légers décalages)
-        # Augmentation forte du kernel d'ouverture pour tuer les petites différences parasites
-        noise_kernel = np.ones((15, 15), np.uint8)
+        # Élimination forte du bruit (petits décalages et pixels isolés) par "Opening"
+        noise_kernel = np.ones((11,11), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, noise_kernel, iterations=1)
         
-        # FUSION MASSIVE (Clustering)
-        # Utilisation d'un pinceau géant (60x60) pour lier toutes les modifications géographiquement proches.
-        # Des ajouts et suppressions voisins seront fusionnés dans la même grosse "tache".
-        cluster_kernel = np.ones((60, 60), np.uint8)
+        # Fermeture massive pour fusionner les composants d'une même zone géographique (Clustering)
+        # Cela force les ajouts et suppressions proches à s'unifier dans un même grand bloc
+        close_kernel = np.ones((80,80), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel, iterations=2)
         
-        # MORPH_CLOSE bouche les "trous" entre les petits blocs
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, cluster_kernel, iterations=2)
-        
-        # Dilatation finale pour gonfler le bloc et s'assurer qu'il englobe bien toute la zone
-        thresh = cv2.dilate(thresh, cluster_kernel, iterations=2)
+        # Dilatation finale pour créer de belles grosses Bounding Boxes englobantes
+        dilate_kernel = np.ones((60,60), np.uint8)
+        thresh = cv2.dilate(thresh, dilate_kernel, iterations=2)
         
         # 4. Annotation des anomalies
         # Conversion de l'image (grayscale -> BGR) pour dessiner en couleurs
@@ -152,9 +149,8 @@ def process_comparison_task(comparison_id):
         anomalies_list = []
         
         for cnt in contours:
-            # Ignorer les bruits minuscules et faux positifs (seuil très fortement augmenté suite à la fusion)
-            # Un carré de 100x100 fait 10000 pixels d'aire.
-            if cv2.contourArea(cnt) > 15000:
+            # Ignorer les bruits (seuil massivement augmenté à cause de la forte dilatation)
+            if cv2.contourArea(cnt) > 10000:
                 x, y, w, h = cv2.boundingRect(cnt)
                 
                 # Compter les pixels d'ajout et de suppression dans ce cadre
