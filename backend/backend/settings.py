@@ -78,7 +78,7 @@ default_db_url = f"postgres://{os.environ.get('POSTGRES_USER', 'admin')}:{os.env
 DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get('DATABASE_URL', default_db_url),
-        conn_max_age=600
+        conn_max_age=0
     )
 }
 
