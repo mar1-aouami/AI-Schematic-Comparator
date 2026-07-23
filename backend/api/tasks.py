@@ -128,13 +128,13 @@ def process_comparison_task(comparison_id):
         noise_kernel = np.ones((11,11), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, noise_kernel, iterations=1)
         
-        # MEGA CLUSTERING : Fermeture gigantesque pour fusionner toute une région géographique
+        # ULTRA MEGA CLUSTERING : Fermeture titanesque pour fusionner toute une région géographique
         # Force les ajouts et suppressions éloignés de plusieurs centimètres à s'unifier dans UN SEUL grand bloc
-        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (250, 250))
+        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (600, 600))
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel, iterations=1)
         
         # Dilatation finale pour créer un seul GRAND carré englobant
-        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (200, 200))
         thresh = cv2.dilate(thresh, dilate_kernel, iterations=1)
         
         # 4. Annotation des anomalies
@@ -161,10 +161,11 @@ def process_comparison_task(comparison_id):
                 count_del = cv2.countNonZero(roi_del)
                 
                 # Classification selon la proportion d'ajout/suppression
-                if count_add > count_del * 2:
+                # Pour qu'une grande boîte soit verte ou rouge, il faut qu'elle soit très pure (>90%)
+                if count_add > count_del * 9:
                     diff_type = "ajout"
                     color = (0, 255, 0) # Vert
-                elif count_del > count_add * 2:
+                elif count_del > count_add * 9:
                     diff_type = "suppression"
                     color = (0, 0, 255) # Rouge
                 else:
