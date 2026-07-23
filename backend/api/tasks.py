@@ -106,9 +106,10 @@ def process_comparison_task(comparison_id):
         # --- NOUVELLE LOGIQUE ROBUSTE (Shift Tolerance) ---
         # Le fond est blanc (255) et les lignes sont noires (0).
         # L'érosion épaissit les traits noirs. Cela permet de tolérer un décalage d'alignement.
-        shift_kernel = np.ones((5, 5), np.uint8)
-        a_thick = cv2.erode(blur_a, shift_kernel, iterations=2)
-        b_thick = cv2.erode(blur_b, shift_kernel, iterations=2)
+        # CORRECTION : Tolérance fine (3x3, 1 itération) pour ne pas avaler les vraies modifications
+        shift_kernel = np.ones((3, 3), np.uint8)
+        a_thick = cv2.erode(blur_a, shift_kernel, iterations=1)
+        b_thick = cv2.erode(blur_b, shift_kernel, iterations=1)
         
         # Ajout (présent dans B, absent dans A) : A_épaissi(255) - B(0) = 255
         diff_add = cv2.subtract(a_thick, blur_b)
@@ -136,8 +137,8 @@ def process_comparison_task(comparison_id):
         _, dbg1 = cv2.imencode('.jpg', diff, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
         default_storage.save(f"results/debug_diff_raw_{comparison.id}.jpg", ContentFile(dbg1.tobytes()))
         
-        # Filtre de seuillage strict
-        _, thresh = cv2.threshold(diff, 80, 255, cv2.THRESH_BINARY)
+        # Filtre de seuillage plus sensible (40 au lieu de 80)
+        _, thresh = cv2.threshold(diff, 40, 255, cv2.THRESH_BINARY)
         
         # DEBUG 2 : Après seuillage
         _, dbg2 = cv2.imencode('.jpg', thresh, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
@@ -151,7 +152,10 @@ def process_comparison_task(comparison_id):
         clean_thresh = np.zeros_like(thresh)
         raw_contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in raw_contours:
-            if cv2.contourArea(cnt) > 200:  # Garder les lignes fines (>200) mais ignorer la poussière (<200)
+            x, y, w, h = cv2.boundingRect(cnt)
+            # CORRECTION DU BUG MAJEUR : Les lignes fines ont une aire (contourArea) de 0 dans OpenCV !
+            # Il faut utiliser la largeur ou hauteur (w, h) pour ignorer la poussière sans effacer les circuits.
+            if w > 15 or h > 15:
                 cv2.drawContours(clean_thresh, [cnt], -1, 255, -1)
                 cv2.drawContours(clean_thresh, [cnt], -1, 255, 3)
         
@@ -184,8 +188,8 @@ def process_comparison_task(comparison_id):
         img_h, img_w = aligned_b.shape[:2]
         
         for cnt in contours:
-            # Ignorer les bruits (seuil massivement augmenté à cause de la forte dilatation)
-            if cv2.contourArea(cnt) > 10000:
+            # Ignorer les bruits (seuil ajusté à 3000 pour garder les petits composants isolés)
+            if cv2.contourArea(cnt) > 3000:
                 x, y, w, h = cv2.boundingRect(cnt)
                 
                 # Ignorer les contours géants qui couvrent presque toute la page (90%)
