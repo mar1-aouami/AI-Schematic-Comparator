@@ -121,90 +121,92 @@ def process_comparison_task(comparison_id):
         # Combinaison des ajouts et suppressions réels
         diff = cv2.bitwise_or(diff_add, diff_del)
         
-        # Effacer les bordures (artefacts d'alignement qui créent un cadre géant)
+        # Effacer les bordures (artefacts d'alignement)
         margin = 150
         diff[:margin, :] = 0
         diff[-margin:, :] = 0
         diff[:, :margin] = 0
         diff[:, -margin:] = 0
         
-        # Filtre de seuillage strict
+        # Seuillage
         _, thresh = cv2.threshold(diff, 80, 255, cv2.THRESH_BINARY)
         
-        # 1. Sauvetage des lignes fines : gommage très léger
+        # Gommage très léger pour le bruit de 1-2 pixels
         noise_kernel = np.ones((3,3), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, noise_kernel, iterations=1)
         
-        # 2. Nettoyage intelligent : suppression de la poussière par surface d'aire
-        clean_thresh = np.zeros_like(thresh)
-        raw_contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for cnt in raw_contours:
-            if cv2.contourArea(cnt) > 200:  # Garder les lignes fines (>200) mais ignorer la poussière (<200)
-                cv2.drawContours(clean_thresh, [cnt], -1, 255, -1)
-                cv2.drawContours(clean_thresh, [cnt], -1, 255, 3)
-                
-        # 3. Mega Clustering : taille 800x800 pour de vrais grands carrés
-        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (800, 800))
-        thresh = cv2.morphologyEx(clean_thresh, cv2.MORPH_CLOSE, close_kernel, iterations=1)
-        
-        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (200, 200))
-        thresh = cv2.dilate(thresh, dilate_kernel, iterations=1)
-        
-        # 4. Annotation des anomalies
-        # Conversion de l'image (grayscale -> BGR) pour dessiner en couleurs
+        # 4. ZONAGE PAR GRILLE (remplace le clustering morphologique)
         annotated_img = cv2.cvtColor(aligned_b, cv2.COLOR_GRAY2BGR)
+        img_h, img_w = aligned_b.shape[:2]
         
-        # Trouver les contours des différences
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Grille 4 colonnes x 3 lignes = 12 zones
+        grid_cols = 4
+        grid_rows = 3
+        cell_w = img_w // grid_cols
+        cell_h = img_h // grid_rows
+        
+        # Seuil minimum de pixels modifiés pour qu'une zone soit marquée
+        # (environ 0.05% de la surface d'une cellule)
+        min_changed_pixels = int(cell_w * cell_h * 0.0005)
         
         changed_pixels = cv2.countNonZero(thresh)
         anomalies_count = 0
         anomalies_list = []
         
-        img_h, img_w = aligned_b.shape[:2]
-        
-        for cnt in contours:
-            # Ignorer les bruits (seuil massivement augmenté à cause de la forte dilatation)
-            if cv2.contourArea(cnt) > 10000:
-                x, y, w, h = cv2.boundingRect(cnt)
+        for row in range(grid_rows):
+            for col in range(grid_cols):
+                # Coordonnées de cette zone
+                x1 = col * cell_w
+                y1 = row * cell_h
+                x2 = min(x1 + cell_w, img_w)
+                y2 = min(y1 + cell_h, img_h)
                 
-                # Ignorer les contours géants qui couvrent presque toute la page (90%)
-                if w > 0.9 * img_w or h > 0.9 * img_h:
-                    continue
+                # Extraire la zone de la carte des différences
+                zone_thresh = thresh[y1:y2, x1:x2]
+                zone_changed = cv2.countNonZero(zone_thresh)
                 
-                # Compter les pixels d'ajout et de suppression dans ce cadre
-                roi_add = mask_add[y:y+h, x:x+w]
-                roi_del = mask_del[y:y+h, x:x+w]
-                
-                count_add = cv2.countNonZero(roi_add)
-                count_del = cv2.countNonZero(roi_del)
-                
-                # Classification selon la proportion d'ajout/suppression
-                # Pour qu'une grande boîte soit verte ou rouge, il faut qu'elle soit très pure (>90%)
-                if count_add > count_del * 9:
-                    diff_type = "ajout"
-                    color = (0, 255, 0) # Vert
-                elif count_del > count_add * 9:
-                    diff_type = "suppression"
-                    color = (0, 0, 255) # Rouge
-                else:
-                    diff_type = "modification"
-                    color = (0, 165, 255) # Orange (BGR)
-                
-                # Dessiner un rectangle coloré autour de l'anomalie
-                cv2.rectangle(annotated_img, (x, y), (x+w, y+h), color, 3)
-                anomalies_count += 1
-                
-                # Génération dynamique d'une anomalie sémantique
-                anomalies_list.append({
-                    "id": anomalies_count,
-                    "tag": f"ELEM-{anomalies_count:03d}",
-                    "type": diff_type,
-                    "criticality": "majeure",
-                    "desc": f"Différence détectée ({diff_type})",
-                    "confidence": 85 + (anomalies_count % 10),
-                    "location": f"X:{x} Y:{y}"
-                })
+                # Si cette zone contient suffisamment de vrais changements
+                if zone_changed > min_changed_pixels:
+                    # Compter ajouts et suppressions dans cette zone
+                    zone_add = mask_add[y1:y2, x1:x2]
+                    zone_del = mask_del[y1:y2, x1:x2]
+                    count_add = cv2.countNonZero(zone_add)
+                    count_del = cv2.countNonZero(zone_del)
+                    
+                    # Classification (>90% pur pour être vert ou rouge)
+                    if count_del == 0 or count_add > count_del * 9:
+                        diff_type = "ajout"
+                        color = (0, 255, 0)  # Vert
+                    elif count_add == 0 or count_del > count_add * 9:
+                        diff_type = "suppression"
+                        color = (0, 0, 255)  # Rouge
+                    else:
+                        diff_type = "modification"
+                        color = (0, 165, 255)  # Orange
+                    
+                    # Dessiner un grand rectangle autour de toute la zone
+                    padding = 10
+                    cv2.rectangle(annotated_img,
+                                  (x1 + padding, y1 + padding),
+                                  (x2 - padding, y2 - padding),
+                                  color, 4)
+                    
+                    # Étiquette en haut à gauche de la zone
+                    label = diff_type.upper()
+                    cv2.putText(annotated_img, label,
+                                (x1 + padding + 5, y1 + padding + 40),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
+                    
+                    anomalies_count += 1
+                    anomalies_list.append({
+                        "id": anomalies_count,
+                        "tag": f"ZONE-{row+1}{col+1}",
+                        "type": diff_type,
+                        "criticality": "majeure",
+                        "desc": f"Zone ({row+1},{col+1}) : {diff_type} détecté(e) ({zone_changed} pixels)",
+                        "confidence": 85 + (anomalies_count % 10),
+                        "location": f"Ligne {row+1}, Colonne {col+1}"
+                    })
                 
         # 5. Sauvegarde des images en JPG pour éviter la limite de taille PNG
         from django.core.files.base import ContentFile
