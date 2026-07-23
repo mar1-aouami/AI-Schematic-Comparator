@@ -128,8 +128,20 @@ def process_comparison_task(comparison_id):
         diff[:, :margin] = 0
         diff[:, -margin:] = 0
         
+        # === DEBUG : Sauvegarder les images intermédiaires ===
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+        
+        # DEBUG 1 : Différence brute (avant tout filtre)
+        _, dbg1 = cv2.imencode('.jpg', diff, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+        default_storage.save(f"results/debug_diff_raw_{comparison.id}.jpg", ContentFile(dbg1.tobytes()))
+        
         # Filtre de seuillage strict
         _, thresh = cv2.threshold(diff, 80, 255, cv2.THRESH_BINARY)
+        
+        # DEBUG 2 : Après seuillage
+        _, dbg2 = cv2.imencode('.jpg', thresh, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+        default_storage.save(f"results/debug_thresh_{comparison.id}.jpg", ContentFile(dbg2.tobytes()))
         
         # 1. Sauvetage des lignes fines : gommage très léger
         noise_kernel = np.ones((3,3), np.uint8)
@@ -142,6 +154,10 @@ def process_comparison_task(comparison_id):
             if cv2.contourArea(cnt) > 200:  # Garder les lignes fines (>200) mais ignorer la poussière (<200)
                 cv2.drawContours(clean_thresh, [cnt], -1, 255, -1)
                 cv2.drawContours(clean_thresh, [cnt], -1, 255, 3)
+        
+        # DEBUG 3 : Après nettoyage par aire (avant clustering)
+        _, dbg3 = cv2.imencode('.jpg', clean_thresh, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+        default_storage.save(f"results/debug_clean_{comparison.id}.jpg", ContentFile(dbg3.tobytes()))
                 
         # 3. Mega Clustering : taille 800x800 pour de vrais grands carrés
         close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (800, 800))
@@ -149,6 +165,10 @@ def process_comparison_task(comparison_id):
         
         dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (200, 200))
         thresh = cv2.dilate(thresh, dilate_kernel, iterations=1)
+        
+        # DEBUG 4 : Après clustering (le masque final)
+        _, dbg4 = cv2.imencode('.jpg', thresh, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+        default_storage.save(f"results/debug_clustered_{comparison.id}.jpg", ContentFile(dbg4.tobytes()))
         
         # 4. Annotation des anomalies
         # Conversion de l'image (grayscale -> BGR) pour dessiner en couleurs
@@ -192,8 +212,6 @@ def process_comparison_task(comparison_id):
                 })
                 
         # 5. Sauvegarde des images en JPG pour éviter la limite de taille PNG
-        from django.core.files.base import ContentFile
-        from django.core.files.storage import default_storage
         
         # Encoder et sauvegarder l'image de référence (Plan A)
         _, buffer_ref = cv2.imencode('.jpg', img_a, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
