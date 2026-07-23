@@ -106,10 +106,10 @@ def process_comparison_task(comparison_id):
         # --- NOUVELLE LOGIQUE ROBUSTE (Shift Tolerance) ---
         # Le fond est blanc (255) et les lignes sont noires (0).
         # L'érosion épaissit les traits noirs. Cela permet de tolérer un décalage d'alignement.
-        # CORRECTION : Tolérance fine (3x3, 1 itération) pour ne pas avaler les vraies modifications
-        shift_kernel = np.ones((3, 3), np.uint8)
-        a_thick = cv2.erode(blur_a, shift_kernel, iterations=1)
-        b_thick = cv2.erode(blur_b, shift_kernel, iterations=1)
+        # CORRECTION FINALE : Tolérance forte (5x5, 2 itérations) pour absorber le warp de la partie droite.
+        shift_kernel = np.ones((5, 5), np.uint8)
+        a_thick = cv2.erode(blur_a, shift_kernel, iterations=2)
+        b_thick = cv2.erode(blur_b, shift_kernel, iterations=2)
         
         # Ajout (présent dans B, absent dans A) : A_épaissi(255) - B(0) = 255
         diff_add = cv2.subtract(a_thick, blur_b)
@@ -144,18 +144,16 @@ def process_comparison_task(comparison_id):
         _, dbg2 = cv2.imencode('.jpg', thresh, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
         default_storage.save(f"results/debug_thresh_{comparison.id}.jpg", ContentFile(dbg2.tobytes()))
         
-        # 1. Sauvetage des lignes fines : gommage très léger
-        noise_kernel = np.ones((3,3), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, noise_kernel, iterations=1)
+        # SUPPRESSION DU MORPH_OPEN : Il effaçait mathématiquement toutes les lignes fines de 1 pixel !
         
-        # 2. Nettoyage intelligent : suppression de la poussière par surface d'aire
+        # 2. Nettoyage intelligent : suppression de la poussière par dimensions
         clean_thresh = np.zeros_like(thresh)
         raw_contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in raw_contours:
             x, y, w, h = cv2.boundingRect(cnt)
             # CORRECTION DU BUG MAJEUR : Les lignes fines ont une aire (contourArea) de 0 dans OpenCV !
             # Il faut utiliser la largeur ou hauteur (w, h) pour ignorer la poussière sans effacer les circuits.
-            if w > 15 or h > 15:
+            if w > 10 or h > 10:
                 cv2.drawContours(clean_thresh, [cnt], -1, 255, -1)
                 cv2.drawContours(clean_thresh, [cnt], -1, 255, 3)
         
@@ -163,11 +161,11 @@ def process_comparison_task(comparison_id):
         _, dbg3 = cv2.imencode('.jpg', clean_thresh, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
         default_storage.save(f"results/debug_clean_{comparison.id}.jpg", ContentFile(dbg3.tobytes()))
                 
-        # 3. Mega Clustering : taille 800x800 pour de vrais grands carrés
-        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (800, 800))
+        # 3. Clustering raisonnable : 200x200 pour éviter la création d'un bloc géant couvrant toute la page
+        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (200, 200))
         thresh = cv2.morphologyEx(clean_thresh, cv2.MORPH_CLOSE, close_kernel, iterations=1)
         
-        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (200, 200))
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 50))
         thresh = cv2.dilate(thresh, dilate_kernel, iterations=1)
         
         # DEBUG 4 : Après clustering (le masque final)
