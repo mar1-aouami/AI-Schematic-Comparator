@@ -172,24 +172,9 @@ def process_comparison_task(comparison_id):
                 if w > 0.9 * img_w or h > 0.9 * img_h:
                     continue
                 
-                # Compter les pixels d'ajout et de suppression dans ce cadre
-                roi_add = mask_add[y:y+h, x:x+w]
-                roi_del = mask_del[y:y+h, x:x+w]
-                
-                count_add = cv2.countNonZero(roi_add)
-                count_del = cv2.countNonZero(roi_del)
-                
-                # Classification selon la proportion d'ajout/suppression
-                # Pour qu'une grande boîte soit verte ou rouge, il faut qu'elle soit très pure (>90%)
-                if count_add > count_del * 9:
-                    diff_type = "ajout"
-                    color = (0, 255, 0) # Vert
-                elif count_del > count_add * 9:
-                    diff_type = "suppression"
-                    color = (0, 0, 255) # Rouge
-                else:
-                    diff_type = "modification"
-                    color = (0, 165, 255) # Orange (BGR)
+                # Tout est classifié comme "modification" (Orange)
+                diff_type = "modification"
+                color = (0, 165, 255)  # Orange (BGR)
                 
                 # Dessiner un rectangle coloré autour de l'anomalie
                 cv2.rectangle(annotated_img, (x, y), (x+w, y+h), color, 3)

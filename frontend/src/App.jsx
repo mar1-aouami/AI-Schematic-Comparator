@@ -10,14 +10,14 @@ import { TransformWrapper, TransformComponent, useControls, useTransformContext 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const MOCK_ANOMALIES = [
-  { id: 'AN-01', tag: 'PT-102', type: 'ajout', criticality: 'majeure', desc: 'Nouveau capteur de pression ajouté sur la ligne principale.', confidence: 98, location: 'C-4' },
-  { id: 'AN-02', tag: 'V-205', type: 'suppression', criticality: 'critique', desc: 'Vanne d\'isolement retirée en amont de la pompe de charge.', confidence: 95, location: 'A-2' },
+  { id: 'AN-01', tag: 'PT-102', type: 'modification', criticality: 'majeure', desc: 'Capteur de pression modifié sur la ligne principale.', confidence: 98, location: 'C-4' },
+  { id: 'AN-02', tag: 'V-205', type: 'modification', criticality: 'critique', desc: 'Vanne d\'isolement modifiée en amont de la pompe de charge.', confidence: 95, location: 'A-2' },
   { id: 'AN-03', tag: 'L-14', type: 'modification', criticality: 'mineure', desc: 'Diamètre de tuyauterie réduit de 6" à 4".', confidence: 88, location: 'E-6' },
-  { id: 'AN-04', tag: 'TE-301', type: 'ajout', criticality: 'mineure', desc: 'Transmetteur de température inséré.', confidence: 92, location: 'B-3' },
+  { id: 'AN-04', tag: 'TE-301', type: 'modification', criticality: 'mineure', desc: 'Transmetteur de température modifié.', confidence: 92, location: 'B-3' },
   { id: 'AN-05', tag: 'P-101A', type: 'modification', criticality: 'majeure', desc: 'Changement de spécification de la pompe principale.', confidence: 85, location: 'F-1' },
-  { id: 'AN-06', tag: 'FIC-400', type: 'suppression', criticality: 'majeure', desc: 'Contrôleur de débit supprimé de la boucle de régulation.', confidence: 96, location: 'D-5' },
+  { id: 'AN-06', tag: 'FIC-400', type: 'modification', criticality: 'majeure', desc: 'Contrôleur de débit modifié dans la boucle de régulation.', confidence: 96, location: 'D-5' },
   { id: 'AN-07', tag: 'PSV-210', type: 'modification', criticality: 'critique', desc: 'Pression de tarage modifiée sur la soupape de sûreté.', confidence: 99, location: 'C-2' },
-  { id: 'AN-08', tag: 'E-05', type: 'ajout', criticality: 'majeure', desc: 'Échangeur de chaleur ajouté sur le circuit secondaire.', confidence: 94, location: 'A-7' }
+  { id: 'AN-08', tag: 'E-05', type: 'modification', criticality: 'majeure', desc: 'Échangeur de chaleur modifié sur le circuit secondaire.', confidence: 94, location: 'A-7' }
 ];
 
 
@@ -329,21 +329,11 @@ export default function App() {
   };
 
   const getSemanticColor = (type) => {
-    switch (type) {
-      case 'ajout': return 'emerald-500';
-      case 'modification': return 'amber-500';
-      case 'suppression': return 'red-500';
-      default: return 'slate-500';
-    }
+    return 'amber-500';
   };
 
   const getSemanticIcon = (type, className) => {
-    switch (type) {
-      case 'ajout': return <PlusCircle className={className} />;
-      case 'modification': return <Edit3 className={className} />;
-      case 'suppression': return <MinusCircle className={className} />;
-      default: return null;
-    }
+    return <Edit3 className={className} />;
   };
 
   const getCriticalityBorder = (crit) => {
@@ -367,9 +357,7 @@ export default function App() {
 
   const anomalyStats = useMemo(() => {
     return {
-      ajout: anomaliesMatchingSearch.filter(a => a.type === 'ajout').length,
-      modification: anomaliesMatchingSearch.filter(a => a.type === 'modification').length,
-      suppression: anomaliesMatchingSearch.filter(a => a.type === 'suppression').length
+      total: anomaliesMatchingSearch.length
     };
   }, [anomaliesMatchingSearch]);
 
@@ -593,28 +581,17 @@ export default function App() {
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsFilterMenuOpen(false)}></div>
                             <div className="absolute right-0 top-full mt-1 w-40 bg-blueprint-surface border border-blueprint-border/60 rounded-lg shadow-xl shadow-blueprint-primary/10 z-20 py-1 overflow-hidden">
-                              <button onClick={() => { setTypeFilter('all'); setIsFilterMenuOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-blueprint-bg ${typeFilter === 'all' ? 'text-blueprint-primary font-medium' : 'text-blueprint-text-sec'}`}>Tous les écarts</button>
-                              <button onClick={() => { setTypeFilter('ajout'); setIsFilterMenuOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-blueprint-bg ${typeFilter === 'ajout' ? 'text-emerald-500 font-medium' : 'text-blueprint-text-sec'}`}>Ajouts</button>
-                              <button onClick={() => { setTypeFilter('modification'); setIsFilterMenuOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-blueprint-bg ${typeFilter === 'modification' ? 'text-amber-500 font-medium' : 'text-blueprint-text-sec'}`}>Modifications</button>
-                              <button onClick={() => { setTypeFilter('suppression'); setIsFilterMenuOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-blueprint-bg ${typeFilter === 'suppression' ? 'text-red-500 font-medium' : 'text-blueprint-text-sec'}`}>Suppressions</button>
+                              <button onClick={() => { setTypeFilter('all'); setIsFilterMenuOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-blueprint-bg ${typeFilter === 'all' ? 'text-blueprint-primary font-medium' : 'text-blueprint-text-sec'}`}>Toutes les modifications</button>
                             </div>
                           </>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-center gap-6 bg-blueprint-surface/50 border border-blueprint-border/60 rounded-xl py-1.5 text-sm font-mono">
-                      <div className="flex items-center gap-1.5 text-emerald-500">
-                        <PlusCircle className="w-4 h-4" />
-                        <span>{anomalyStats.ajout}</span>
-                      </div>
+                    <div className="flex items-center justify-center gap-3 bg-blueprint-surface/50 border border-blueprint-border/60 rounded-xl py-1.5 px-4 text-sm font-mono">
                       <div className="flex items-center gap-1.5 text-amber-500">
                         <Edit3 className="w-4 h-4" />
-                        <span>{anomalyStats.modification}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-red-500">
-                        <MinusCircle className="w-4 h-4" />
-                        <span>{anomalyStats.suppression}</span>
+                        <span>{anomalyStats.total} modification{anomalyStats.total > 1 ? 's' : ''} détectée{anomalyStats.total > 1 ? 's' : ''}</span>
                       </div>
                     </div>
 
