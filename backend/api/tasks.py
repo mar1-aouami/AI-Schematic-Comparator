@@ -128,14 +128,14 @@ def process_comparison_task(comparison_id):
         noise_kernel = np.ones((11,11), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, noise_kernel, iterations=1)
         
-        # Fermeture massive pour fusionner les composants d'une même zone géographique (Clustering)
-        # Cela force les ajouts et suppressions proches à s'unifier dans un même grand bloc
-        close_kernel = np.ones((80,80), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel, iterations=2)
+        # MEGA CLUSTERING : Fermeture gigantesque pour fusionner toute une région géographique
+        # Force les ajouts et suppressions éloignés de plusieurs centimètres à s'unifier dans UN SEUL grand bloc
+        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (250, 250))
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel, iterations=1)
         
-        # Dilatation finale pour créer de belles grosses Bounding Boxes englobantes
-        dilate_kernel = np.ones((60,60), np.uint8)
-        thresh = cv2.dilate(thresh, dilate_kernel, iterations=2)
+        # Dilatation finale pour créer un seul GRAND carré englobant
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
+        thresh = cv2.dilate(thresh, dilate_kernel, iterations=1)
         
         # 4. Annotation des anomalies
         # Conversion de l'image (grayscale -> BGR) pour dessiner en couleurs
