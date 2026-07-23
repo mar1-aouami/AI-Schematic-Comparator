@@ -121,6 +121,13 @@ def process_comparison_task(comparison_id):
         # Combinaison des ajouts et suppressions réels
         diff = cv2.bitwise_or(diff_add, diff_del)
         
+        # Effacer les bordures (artefacts d'alignement qui créent un cadre géant)
+        margin = 150
+        diff[:margin, :] = 0
+        diff[-margin:, :] = 0
+        diff[:, :margin] = 0
+        diff[:, -margin:] = 0
+        
         # Filtre de seuillage strict
         _, thresh = cv2.threshold(diff, 80, 255, cv2.THRESH_BINARY)
         
@@ -136,11 +143,11 @@ def process_comparison_task(comparison_id):
                 cv2.drawContours(clean_thresh, [cnt], -1, 255, -1)
                 cv2.drawContours(clean_thresh, [cnt], -1, 255, 3)
                 
-        # 3. Clustering équilibré : taille 350x350
-        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (350, 350))
+        # 3. Mega Clustering : taille 800x800 pour de vrais grands carrés
+        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (800, 800))
         thresh = cv2.morphologyEx(clean_thresh, cv2.MORPH_CLOSE, close_kernel, iterations=1)
         
-        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (200, 200))
         thresh = cv2.dilate(thresh, dilate_kernel, iterations=1)
         
         # 4. Annotation des anomalies
@@ -154,10 +161,16 @@ def process_comparison_task(comparison_id):
         anomalies_count = 0
         anomalies_list = []
         
+        img_h, img_w = aligned_b.shape[:2]
+        
         for cnt in contours:
             # Ignorer les bruits (seuil massivement augmenté à cause de la forte dilatation)
             if cv2.contourArea(cnt) > 10000:
                 x, y, w, h = cv2.boundingRect(cnt)
+                
+                # Ignorer les contours géants qui couvrent presque toute la page (90%)
+                if w > 0.9 * img_w or h > 0.9 * img_h:
+                    continue
                 
                 # Compter les pixels d'ajout et de suppression dans ce cadre
                 roi_add = mask_add[y:y+h, x:x+w]
