@@ -124,17 +124,23 @@ def process_comparison_task(comparison_id):
         # Filtre de seuillage strict
         _, thresh = cv2.threshold(diff, 80, 255, cv2.THRESH_BINARY)
         
-        # Élimination forte du bruit (petits décalages et pixels isolés) par "Opening"
-        noise_kernel = np.ones((11,11), np.uint8)
+        # 1. Sauvetage des lignes fines : gommage très léger
+        noise_kernel = np.ones((3,3), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, noise_kernel, iterations=1)
         
-        # ULTRA MEGA CLUSTERING : Fermeture titanesque pour fusionner toute une région géographique
-        # Force les ajouts et suppressions éloignés de plusieurs centimètres à s'unifier dans UN SEUL grand bloc
-        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (600, 600))
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel, iterations=1)
+        # 2. Nettoyage intelligent : suppression de la poussière par surface d'aire
+        clean_thresh = np.zeros_like(thresh)
+        raw_contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in raw_contours:
+            if cv2.contourArea(cnt) > 200:  # Garder les lignes fines (>200) mais ignorer la poussière (<200)
+                cv2.drawContours(clean_thresh, [cnt], -1, 255, -1)
+                cv2.drawContours(clean_thresh, [cnt], -1, 255, 3)
+                
+        # 3. Clustering équilibré : taille 350x350
+        close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (350, 350))
+        thresh = cv2.morphologyEx(clean_thresh, cv2.MORPH_CLOSE, close_kernel, iterations=1)
         
-        # Dilatation finale pour créer un seul GRAND carré englobant
-        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (200, 200))
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
         thresh = cv2.dilate(thresh, dilate_kernel, iterations=1)
         
         # 4. Annotation des anomalies
